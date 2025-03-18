@@ -5,9 +5,7 @@ import json
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import List
-from datetime import datetime, time
-from apscheduler.schedulers.blocking import BlockingScheduler
-from apscheduler.triggers.cron import CronTrigger
+from datetime import datetime
 
 # Email configuration from environment variables
 SMTP_SERVER = os.getenv('SMTP_SERVER', 'smtp.gmail.com')
@@ -15,11 +13,6 @@ SMTP_PORT = int(os.getenv('SMTP_PORT', '587'))
 EMAIL_USER = os.getenv('EMAIL_USER')
 EMAIL_PASS = os.getenv('EMAIL_PASS')
 RECIPIENT_EMAIL = os.getenv('RECIPIENT_EMAIL')
-
-# Schedule configuration
-UPDATE_FREQUENCY = int(os.getenv('UPDATE_FREQUENCY_MINUTES', '60'))
-# Format: "HH:MM" in 24-hour format (e.g., "14:30" for 2:30 PM)
-START_TIME = os.getenv('START_TIME', '09:00')
 
 def get_watched_coins():
     """
@@ -111,57 +104,32 @@ def send_email(subject, body, sender, recipient, is_html=False):
         server.login(EMAIL_USER, EMAIL_PASS)
         server.send_message(msg)
 
-def send_crypto_update(coins_to_fetch, recipient_email):
+def send_crypto_update():
     """
     Fetch crypto data and send an email update for the specified coins
     """
-    crypto_data = fetch_crypto_data(coins_to_fetch)
-    
-    if crypto_data:
-        email_body = create_crypto_email_body(crypto_data)
+    try:
+        print(f"Sending crypto update at {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        crypto_data = fetch_crypto_data(WATCHED_COINS)
         
-        try:
+        if crypto_data:
+            email_body = create_crypto_email_body(crypto_data)
+            
             send_email(
                 subject="Crypto Currency Update",
                 body=email_body,
                 sender=EMAIL_USER,
-                recipient=recipient_email,
+                recipient=RECIPIENT_EMAIL,
                 is_html=True
             )
+            print("Email sent successfully!")
             return True
-        except Exception as e:
-            print(f"Error sending email: {e}")
+        else:
+            print("No crypto data received")
             return False
-    return False
-
-def get_next_run_time():
-    """
-    Calculate the next run time based on START_TIME
-    """
-    try:
-        # Parse the START_TIME string into hours and minutes
-        hour, minute = map(int, START_TIME.split(':'))
-        
-        # Create a time object for the start time
-        start_time = time(hour, minute)
-        
-        # Get current time
-        now = datetime.now()
-        
-        # Create a datetime for today at the start time
-        next_run = datetime.combine(now.date(), start_time)
-        
-        # If the start time has already passed today, schedule for tomorrow
-        if next_run <= now:
-            next_run = datetime.combine(now.date(), start_time)
-            from datetime import timedelta
-            next_run += timedelta(days=1)
-        
-        return next_run
-    except ValueError as e:
-        print(f"Error parsing START_TIME ({START_TIME}): {e}")
-        print("Using current time as first run time")
-        return datetime.now()
+    except Exception as e:
+        print(f"Error in send_crypto_update: {e}")
+        return False
 
 def validate_config():
     """
@@ -183,46 +151,6 @@ def validate_config():
     
     print(f"Configuration validated. Watching coins: {', '.join(WATCHED_COINS)}")
 
-def main():
-    """
-    Main function to run the scheduler
-    """
-    try:
-        # Validate configuration
-        validate_config()
-        
-        # Create scheduler
-        scheduler = BlockingScheduler()
-        
-        # Get the first run time
-        next_run = get_next_run_time()
-        
-        # Schedule the job
-        scheduler.add_job(
-            send_crypto_update, 
-            'interval', 
-            minutes=UPDATE_FREQUENCY,
-            next_run_time=next_run
-        )
-        
-        print(f"Starting scheduler. Update frequency: {UPDATE_FREQUENCY} minutes")
-        print(f"First update scheduled for: {next_run.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"Watching coins: {', '.join(WATCHED_COINS)}")
-        
-        # Start the scheduler
-        scheduler.start()
-        
-    except Exception as e:
-        print(f"Error in main: {e}")
-        raise
-
 if __name__ == "__main__":
-    # Send the update
-    success = send_crypto_update(WATCHED_COINS, "g_janota@outlook.com")
-    
-    if success:
-        print("Crypto update email sent successfully!")
-    else:
-        print("Failed to send crypto update email.")
-    
-    main()
+    validate_config()
+    send_crypto_update()
