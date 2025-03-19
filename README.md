@@ -1,4 +1,4 @@
-# Crypto Price Monitor
+# Coin Updates
 
 A Python script that monitors cryptocurrency prices and sends email updates with price changes and trends.
 
